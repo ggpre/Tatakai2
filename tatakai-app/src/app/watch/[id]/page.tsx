@@ -204,8 +204,6 @@ const WatchPage = () => {
     }
   };
 
-  // Duplicate fetchSources removed. Only the useCallback version at the top is kept.
-
   const handleServerChange = async (serverName: string) => {
     if (!currentEpisodeId) return;
     

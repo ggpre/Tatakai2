@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, Volume2, VolumeX, Maximize, Settings, Subtitles } from 'lucide-react';
 import {
@@ -44,6 +44,8 @@ export default function VideoPlayer({ sources, subtitles }: VideoPlayerProps) {
   const [currentSubtitle, setCurrentSubtitle] = useState<string>('off');
   const [volume, setVolume] = useState(1);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [isVideoInitialized, setIsVideoInitialized] = useState(false);
+  const [pendingPlay, setPendingPlay] = useState(false);
 
   // Debug subtitles
   console.log('VideoPlayer subtitles:', subtitles);
@@ -118,6 +120,19 @@ export default function VideoPlayer({ sources, subtitles }: VideoPlayerProps) {
 
     const handleCanPlay = () => {
       setIsLoading(false);
+      setIsVideoInitialized(true);
+      
+      // If there's a pending play request, execute it
+      if (pendingPlay) {
+        togglePlay();
+      }
+    };
+
+    const handleLoadedData = () => {
+      setIsVideoInitialized(true);
+      if (pendingPlay) {
+        togglePlay();
+      }
     };
 
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
@@ -128,13 +143,22 @@ export default function VideoPlayer({ sources, subtitles }: VideoPlayerProps) {
     video.addEventListener('error', handleError);
     video.addEventListener('loadstart', handleLoadStart);
     video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('loadeddata', handleLoadedData);
 
         // Load HLS.js for M3U8 streams
     const loadVideo = async () => {
+      if (isVideoInitialized) {
+        setIsVideoInitialized(false);
+      }
+      
       try {
         console.log('Loading video source:', currentSource);
         const proxiedUrl = getProxiedUrl(currentSource.url);
         console.log('Using proxied URL:', proxiedUrl);
+        
+        setError(null);
+        setIsLoading(true);
+        setPendingPlay(false);
         
         if (currentSource.isM3U8) {
           console.log('Loading M3U8 stream with HLS.js');
@@ -146,25 +170,28 @@ export default function VideoPlayer({ sources, subtitles }: VideoPlayerProps) {
             // Clean up previous HLS instance
             if (hlsRef.current) {
               hlsRef.current.destroy();
+              hlsRef.current = null;
             }
             
             const hls = new Hls({
               enableWorker: true,
               lowLatencyMode: true,
-              debug: false, // Disable debug to reduce console spam
+              debug: false,
             });
             
             hlsRef.current = hls;
             
             console.log('Loading HLS source:', proxiedUrl);
-            hls.loadSource(proxiedUrl);
-            hls.attachMedia(video);
             
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
               console.log('HLS manifest parsed successfully');
+              setIsLoading(false);
             });
             
-            hls.on(Hls.Events.ERROR, (event, data) => {
+            hls.loadSource(proxiedUrl);
+            hls.attachMedia(video);
+            
+            hls.on(Hls.Events.ERROR, (event: unknown, data: { type: string; details: string; fatal: boolean }) => {
               console.error('HLS error event:', event);
               console.error('HLS error data:', data);
               console.error('HLS error type:', data.type);
@@ -225,6 +252,7 @@ export default function VideoPlayer({ sources, subtitles }: VideoPlayerProps) {
       video.removeEventListener('error', handleError);
       video.removeEventListener('loadstart', handleLoadStart);
       video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('loadeddata', handleLoadedData);
       
       // Clean up HLS
       if (hlsRef.current) {
@@ -237,18 +265,36 @@ export default function VideoPlayer({ sources, subtitles }: VideoPlayerProps) {
         clearTimeout(controlsTimeout);
       }
     };
-  }, [currentSource, controlsTimeout]);
+  }, [currentSource]);
 
-  const togglePlay = () => {
+  const togglePlay = useCallback(async () => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || isLoading) return;
 
-    if (isPlaying) {
-      video.pause();
-    } else {
-      video.play();
+    try {
+      if (isPlaying) {
+        video.pause();
+        setIsPlaying(false);
+      } else {
+        // Wait for video to be ready before playing
+        if (video.readyState < 3) {
+          setPendingPlay(true);
+          return;
+        }
+        
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          await playPromise;
+          setIsPlaying(true);
+          setPendingPlay(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling play:', error);
+      setIsPlaying(false);
+      setPendingPlay(false);
     }
-  };
+  }, [isLoading, isPlaying]);
 
   const toggleMute = () => {
     const video = videoRef.current;

@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import dynamic from 'next/dynamic';
 import HeroSection from '@/components/HeroSection';
 import AnimeCarousel from '@/components/AnimeCarousel';
 import Top10Section from '@/components/Top10Section';

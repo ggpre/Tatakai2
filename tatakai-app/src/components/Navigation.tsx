@@ -252,9 +252,11 @@ const Navigation = () => {
                         className="flex items-center space-x-3 p-3 rounded-lg hover:bg-accent cursor-pointer transition-colors"
                         onClick={() => router.push(`/anime/${suggestion.id}`)}
                       >
-                        <img
+                        <Image
                           src={suggestion.poster}
                           alt={suggestion.name}
+                          width={48}
+                          height={64}
                           className="w-12 h-16 object-cover rounded"
                         />
                         <div className="flex-1">

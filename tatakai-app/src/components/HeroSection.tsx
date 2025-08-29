@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Info, Star, Clock, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -217,9 +218,11 @@ const HeroSection: React.FC<HeroSectionProps> = ({ spotlightAnimes }) => {
                 index === currentIndex ? 'ring-2 ring-primary' : ''
               }`}>
                 <div className="flex items-center space-x-3">
-                  <img
+                  <Image
                     src={anime.poster}
                     alt={anime.name}
+                    width={48}
+                    height={64}
                     className="w-12 h-16 object-cover rounded"
                   />
                   <div className="flex-1 text-left">

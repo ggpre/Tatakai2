@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Star, TrendingUp, Calendar } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -143,9 +145,11 @@ const Top10Section: React.FC<Top10SectionProps> = ({ top10Animes }) => {
 
                               {/* Poster */}
                               <div className="w-14 h-20 flex-shrink-0">
-                                <img
+                                <Image
                                   src={anime.poster}
                                   alt={anime.name}
+                                  width={56}
+                                  height={80}
                                   className="w-full h-full object-cover"
                                 />
                               </div>
@@ -170,10 +174,12 @@ const Top10Section: React.FC<Top10SectionProps> = ({ top10Animes }) => {
                                 </div>
 
                                 <div className="flex items-center space-x-2">
-                                  <Button size="sm" className="h-7">
-                                    <Play className="w-3 h-3 mr-1" />
-                                    Watch
-                                  </Button>
+                                    <Button size="sm" className="h-7" asChild>
+                                    <Link href={`/watch/${anime.id}?ep=1`}>
+                                      <Play className="w-3 h-3 mr-1" />
+                                      Watch
+                                    </Link>
+                                    </Button>
                                   <Button size="sm" variant="outline" className="h-7">
                                     Info
                                   </Button>
@@ -207,9 +213,11 @@ const Top10Section: React.FC<Top10SectionProps> = ({ top10Animes }) => {
 
                               {/* Poster */}
                               <div className="w-14 h-20 flex-shrink-0">
-                                <img
+                                <Image
                                   src={anime.poster}
                                   alt={anime.name}
+                                  width={56}
+                                  height={80}
                                   className="w-full h-full object-cover"
                                 />
                               </div>

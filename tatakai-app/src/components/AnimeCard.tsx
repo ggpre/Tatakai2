@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Info, Clock, Plus, Heart } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -78,9 +79,11 @@ const AnimeCard: React.FC<AnimeCardProps> = ({
           <CardContent className="p-0">
             <div className="flex">
               <div className="w-24 h-32 flex-shrink-0">
-                <img
+                <Image
                   src={anime.poster}
                   alt={anime.name}
+                  width={96}
+                  height={128}
                   className="w-full h-full object-cover"
                   onLoad={() => setImageLoaded(true)}
                 />
@@ -179,10 +182,12 @@ const AnimeCard: React.FC<AnimeCardProps> = ({
                   )}
 
                   {/* Image */}
-                  <img
+                  <Image
                     src={anime.poster}
                     alt={anime.name}
-                    className={`w-full h-full object-cover transition-all duration-700 ${
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className={`object-cover transition-all duration-700 ${
                       isHovered ? 'scale-110' : 'scale-100'
                     } ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
                     onLoad={() => setImageLoaded(true)}
