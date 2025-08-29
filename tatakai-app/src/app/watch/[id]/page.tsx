@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { AnimeAPI, type EpisodeServersResponse, type EpisodeSourcesResponse, type AnimeEpisodesResponse, type Episode, type AnimeInfoResponse } from '@/lib/api';
@@ -29,6 +29,29 @@ const WatchPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [animeInfo, setAnimeInfo] = useState<AnimeInfoResponse['data']['anime'] | null>(null);
+
+  const fetchSources = useCallback(async (episodeId: string, server: string, category: 'sub' | 'dub' | 'raw') => {
+    try {
+      console.log(`Fetching sources for server: ${server}, category: ${category}`);
+      const sourcesData = await AnimeAPI.getEpisodeSources(episodeId, server, category);
+      
+      if (sourcesData.success) {
+        setSources(sourcesData);
+        console.log('=== SOURCES DEBUG ===');
+        console.log('Full sources response:', JSON.stringify(sourcesData, null, 2));
+        console.log('Sources array:', sourcesData.data.sources);
+        console.log('Tracks array:', sourcesData.data.tracks);
+        console.log('Headers:', sourcesData.data.headers);
+        console.log('=====================');
+      } else {
+        console.error('Sources API returned success: false');
+        throw new Error('Failed to load video sources');
+      }
+    } catch (err) {
+      console.error('Error fetching sources:', err);
+      setError(`Unable to load video sources: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchEpisodeData = async () => {
@@ -157,7 +180,7 @@ const WatchPage = () => {
     };
 
     fetchEpisodeData();
-  }, [animeId, episodeParam]);
+  }, [animeId, episodeParam, fetchSources, selectedCategory]);
 
   // Navigation functions
   const goToEpisode = (episodeNumber: number) => {
@@ -181,42 +204,7 @@ const WatchPage = () => {
     }
   };
 
-  const fetchSources = async (episodeId: string, server: string, category: 'sub' | 'dub' | 'raw') => {
-    try {
-      console.log(`Fetching sources for server: ${server}, category: ${category}`);
-      const sourcesData = await AnimeAPI.getEpisodeSources(episodeId, server, category);
-      
-      if (sourcesData.success) {
-        setSources(sourcesData);
-        console.log('=== SOURCES DEBUG ===');
-        console.log('Full sources response:', JSON.stringify(sourcesData, null, 2));
-        console.log('Sources array:', sourcesData.data.sources);
-        console.log('Tracks array:', sourcesData.data.tracks);
-        console.log('Headers:', sourcesData.data.headers);
-        console.log('=====================');
-      } else {
-        console.error('Sources API returned success: false');
-        throw new Error('Failed to load video sources');
-      }
-    } catch (err) {
-      console.error(`Error fetching sources for server ${server}:`, err);
-      
-      // Try alternative servers if current one fails
-      if (servers) {
-        const availableServers = servers.data[category] || [];
-        const currentServerIndex = availableServers.findIndex(s => s.serverName === server);
-        const nextServer = availableServers[currentServerIndex + 1];
-        
-        if (nextServer) {
-          console.log(`Trying alternative server: ${nextServer.serverName}`);
-          setSelectedServer(nextServer.serverName);
-          return fetchSources(episodeId, nextServer.serverName, category);
-        }
-      }
-      
-      setError(`Unable to load video sources from any server: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
-  };
+  // Duplicate fetchSources removed. Only the useCallback version at the top is kept.
 
   const handleServerChange = async (serverName: string) => {
     if (!currentEpisodeId) return;

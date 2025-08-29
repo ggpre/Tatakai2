@@ -10,8 +10,7 @@ import {
   Volume2, 
   Globe, 
   Shield, 
-  Bell,
-  Download
+  Bell
 } from 'lucide-react';
 
 const SettingsPage = () => {
@@ -37,7 +36,7 @@ const SettingsPage = () => {
     { id: 'notifications', label: 'Notifications', icon: Bell },
   ];
 
-  const handleSettingChange = (key: string, value: any) => {
+  const handleSettingChange = (key: string, value: string | boolean) => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 

@@ -11,12 +11,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
-// Dynamically import components that might cause hydration issues
-const DynamicHeroSection = dynamic(() => import('@/components/HeroSection'), {
-  ssr: false,
-  loading: () => <HeroSkeleton />
-});
-
 const HeroSkeleton = () => (
   <div className="h-screen relative">
     <Skeleton className="absolute inset-0" />

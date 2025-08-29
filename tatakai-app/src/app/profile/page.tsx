@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Edit, Heart, Clock, BarChart3, Settings } from 'lucide-react';
+import { User, Edit, Heart, Clock, BarChart3 } from 'lucide-react';
 
 const ProfilePage = () => {
   const [activeTab, setActiveTab] = useState('favorites');
