@@ -1,0 +1,38 @@
+{
+  "id": "com.tatakai.webos",
+  "version": "1.0.0",
+  "vendor": "Tatakai",
+  "type": "web",
+  "main": "index.html",
+  "title": "Tatakai - Anime Streaming",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "splashBackground": "splashBackground.png",
+  "transparent": false,
+  "requiredPermissions": [
+    "internet",
+    "audio.operation",
+    "video.operation",
+    "network.operation",
+    "storage.operation",
+    "media.operation"
+  ],
+  "displayAffinity": "landscape",
+  "supportGlobalSearch": true,
+  "contentRating": {
+    "rating": "ALL",
+    "ratingDescription": "General Audience"
+  },
+  "mediaType": "streaming",
+  "trustLevel": "trusted",
+  "uiRevision": "2",
+  "v8SnapshotFile": "",
+  "v8StartupFile": "",
+  "handlesRelaunch": true,
+  "accessibility": {
+    "supportsAudioGuidance": true
+  },
+  "deepLinkingParams": "contentTarget",
+  "mediaKeyHandlers": ["play", "pause", "stop", "rewind", "fastForward"],
+  "screenOrientation": "landscape"
+}

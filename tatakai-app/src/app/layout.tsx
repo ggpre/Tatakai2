@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Navigation from "@/components/Navigation";
-import Footer from "@/components/Footer";
+import "../styles/tv.css";
+import { ClientLayout } from "@/components/ClientLayout";
+import TVLayout from "@/components/TVLayout";
+import DeviceSelector from "@/components/DeviceSelector";
 
 export const metadata: Metadata = {
   title: "Tatakai - Modern Anime Streaming",
@@ -17,13 +19,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="antialiased font-sans">
-        <div className="min-h-screen bg-background text-foreground">
-          <Navigation />
-          <main className="pt-16">
+        <ClientLayout>
+          <TVLayout>
             {children}
-          </main>
-          <Footer />
-        </div>
+          </TVLayout>
+          <DeviceSelector />
+        </ClientLayout>
       </body>
     </html>
   );

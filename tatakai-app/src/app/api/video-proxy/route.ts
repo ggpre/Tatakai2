@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
       const baseUrl = new URL(videoUrl);
       const basePath = baseUrl.pathname.substring(0, baseUrl.pathname.lastIndexOf('/') + 1);
       
+
       // Rewrite relative URLs in the manifest to use our proxy
       const rewrittenText = text.replace(
         /^(?!#|https?:\/\/)(.+)$/gm,

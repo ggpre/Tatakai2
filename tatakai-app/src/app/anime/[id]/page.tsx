@@ -13,10 +13,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Play, Star, Clock, BookOpen, Heart, Share2 } from 'lucide-react';
 import AnimeCarousel from '@/components/AnimeCarousel';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useScreenDetection } from '@/hooks/useScreenDetection';
+import TVAnimeDetailsPage from '@/components/TVAnimeDetailsPage';
 
 const AnimeDetailsPage = () => {
   const params = useParams();
   const animeId = params?.id as string;
+  const { effectiveDeviceType } = useScreenDetection();
   const [animeData, setAnimeData] = useState<AnimeInfoResponse | null>(null);
   const [episodes, setEpisodes] = useState<AnimeEpisodesResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,6 +58,11 @@ const AnimeDetailsPage = () => {
 
     fetchAnimeData();
   }, [animeId]);
+
+  // Move the TV device check after all hooks
+  if (effectiveDeviceType === 'tv') {
+    return <TVAnimeDetailsPage />;
+  }
 
   if (loading) {
     return <AnimeDetailsSkeleton />;

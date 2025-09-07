@@ -30,6 +30,17 @@ const AnimeCard: React.FC<AnimeCardProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
 
+  const handleCardClick = () => {
+    window.location.href = `/anime/${anime.id}`;
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleCardClick();
+    }
+  };
+
   const cardVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { 
@@ -161,7 +172,15 @@ const AnimeCard: React.FC<AnimeCardProps> = ({
     >
       <HoverCard openDelay={500}>
         <HoverCardTrigger asChild>
-          <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 border-border/50 bg-card/80 backdrop-blur-sm group cursor-pointer">
+          <Card 
+            data-keyboard-nav
+            tabIndex={-1}
+            role="button"
+            aria-label={`View ${anime.name}`}
+            onClick={handleCardClick}
+            onKeyDown={handleKeyDown}
+            className="overflow-hidden hover:shadow-xl transition-all duration-300 border-border/50 bg-card/80 backdrop-blur-sm group cursor-pointer"
+          >
             <CardContent className="p-0 relative">
               <AspectRatio ratio={aspectRatios[size]}>
                 <div className="relative w-full h-full overflow-hidden">
