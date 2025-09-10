@@ -98,7 +98,7 @@ const TVNavbar: React.FC = () => {
           className="tv-navbar__toggle"
           onClick={() => setIsExpanded(!isExpanded)}
         >
-          <span>▶️</span>
+          <ChevronRight className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
         </button>
       </div>
 

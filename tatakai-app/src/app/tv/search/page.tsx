@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AnimeAPI } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Search } from 'lucide-react';
 import Image from 'next/image';
 
 interface ApiAnime {
@@ -249,7 +250,9 @@ const TVSearchPage = () => {
     <div className="min-h-screen bg-black text-white p-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-4">🔍 Search Anime</h1>
+        <h1 className="text-4xl font-bold mb-4 flex items-center gap-3">
+          <Search className="w-10 h-10" /> Search Anime
+        </h1>
         <div className="text-xl text-gray-300">
           Use the virtual keyboard to search for anime
         </div>
@@ -259,7 +262,7 @@ const TVSearchPage = () => {
       <div className="mb-8">
         <div className="bg-gray-800 rounded-lg p-4 border-2 border-gray-600">
           <div className="flex items-center space-x-4">
-            <span className="text-2xl">🔍</span>
+            <Search className="w-6 h-6" />
             <input
               ref={searchInputRef}
               type="text"
@@ -316,7 +319,7 @@ const TVSearchPage = () => {
                   >
                     {key === 'SPACE' ? '⎵ SPACE' : 
                      key === 'BACKSPACE' ? '⌫' :
-                     key === 'SEARCH' ? '🔍 SEARCH' :
+                     key === 'SEARCH' ? <><Search className="w-4 h-4 inline mr-1" /> SEARCH</> :
                      key === 'CLEAR' ? '🗑️ CLEAR' : key}
                   </Button>
                 ))}
@@ -409,7 +412,9 @@ const TVSearchPage = () => {
           ) : (
             <div className="text-center py-12 text-gray-400">
               <div className="space-y-4">
-                <div className="text-6xl">🔍</div>
+                <div className="text-6xl">
+                  <Search className="w-24 h-24 mx-auto" />
+                </div>
                 <div>Enter a search term to find anime</div>
                 <div className="text-sm">Use the virtual keyboard to type</div>
               </div>

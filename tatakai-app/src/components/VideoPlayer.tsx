@@ -8,6 +8,7 @@ import React, {
   useCallback,
 } from 'react';
 import { Button } from '@/components/ui/button';
+import { Play, Pause, ClipboardList } from 'lucide-react';
 // Using minimal imports to avoid lucide-react issues
 import type Hls from 'hls.js';
 
@@ -511,9 +512,9 @@ const VideoPlayer = React.forwardRef<VideoPlayerRef, VideoPlayerProps>(
                 className={`p-2 ${focusedControl === 'play' ? 'ring-4 ring-rose-500 bg-rose-500/20' : ''}`}
               >
                 {isPlaying ? (
-                  <span className="text-xl">⏸️</span>
+                  <Pause className="w-5 h-5" />
                 ) : (
-                  <span className="text-xl">▶️</span>
+                  <Play className="w-5 h-5" />
                 )}
               </Button>
 
@@ -572,7 +573,7 @@ const VideoPlayer = React.forwardRef<VideoPlayerRef, VideoPlayerProps>(
                 className={`p-2 ${focusedControl === 'episodes' ? 'ring-4 ring-rose-500 bg-rose-500/20' : ''}`}
               >
                 <div className="flex items-center">
-                  <span className="text-lg font-bold">📋</span>
+                  <ClipboardList className="w-5 h-5" />
                 </div>
               </Button>
 

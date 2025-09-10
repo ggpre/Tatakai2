@@ -9,6 +9,16 @@ import HorizontalList from './tv/HorizontalListNew';
 import VerticalList from './tv/VerticalListNew';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  Play, 
+  Info, 
+  Search, 
+  Clapperboard, 
+  TrendingUp, 
+  Star, 
+  Plus, 
+  Trophy 
+} from 'lucide-react';
 
 interface ApiAnime {
   id?: string;
@@ -105,7 +115,7 @@ const SpotlightSection: React.FC<{ anime: Anime }> = ({ anime }) => {
               className="tv-button primary"
             >
               <button className="bg-red-600 hover:bg-red-700 text-white px-10 py-4 rounded-lg font-bold transition-colors flex items-center gap-3 text-lg">
-                <span className="text-2xl">▶️</span> Watch Now
+                <Play className="w-6 h-6" /> Watch Now
               </button>
             </Focusable>
             <Focusable
@@ -114,8 +124,8 @@ const SpotlightSection: React.FC<{ anime: Anime }> = ({ anime }) => {
               onSelect={handleSelect}
               className="tv-button secondary"
             >
-              <button className="bg-white/20 hover:bg-white/30 text-white px-10 py-4 rounded-lg font-bold transition-colors backdrop-blur-sm text-lg">
-                ℹ️ More Info
+              <button className="bg-white/20 hover:bg-white/30 text-white px-10 py-4 rounded-lg font-bold transition-colors backdrop-blur-sm text-lg flex items-center gap-3">
+                <Info className="w-6 h-6" /> More Info
               </button>
             </Focusable>
           
@@ -130,10 +140,14 @@ const AnimeSection: React.FC<{
   title: string;
   anime: Anime[];
   sectionId: string;
-}> = ({ title, anime, sectionId }) => {
+  icon?: React.ReactNode;
+}> = ({ title, anime, sectionId, icon }) => {
   return (
     <div className="mb-12 py-6" data-section={sectionId}>
-      <h2 className="text-3xl font-bold text-white mb-8 px-8">{title}</h2>
+      <h2 className="text-3xl font-bold text-white mb-8 px-8 flex items-center gap-3">
+        {icon}
+        {title}
+      </h2>
       <HorizontalList id={sectionId} className="px-8" spacing={20} wrapAround>
         {anime.map((item, index) => (
           <AnimeCard
@@ -241,7 +255,7 @@ const TVHomePage: React.FC = () => {
         <div className="px-8 py-6 pb-4">
           <div className="flex items-center justify-between">
             <h1 className="text-4xl font-bold text-white flex items-center gap-3">
-              <span className="text-5xl">🎬</span>
+              <Clapperboard className="w-12 h-12" />
               Tatakai TV
             </h1>
             <div className="flex gap-4">
@@ -252,7 +266,7 @@ const TVHomePage: React.FC = () => {
                 className="tv-button primary"
               >
                 <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg font-bold transition-colors flex items-center gap-3 text-xl">
-                  <span className="text-2xl">🔍</span>
+                  <Search className="w-6 h-6" />
                   Search Anime
                 </button>
               </Focusable>
@@ -267,33 +281,37 @@ const TVHomePage: React.FC = () => {
         <VerticalList id="main-sections" spacing={32}>
           {trendingAnime.length > 1 && (
             <AnimeSection
-              title="🔥 Trending Now"
+              title="Trending Now"
               anime={trendingAnime.slice(1)} // Skip first item used in spotlight
               sectionId="trending"
+              icon={<TrendingUp className="w-8 h-8 text-rose-500" />}
             />
           )}
           
           {popularAnime.length > 0 && (
             <AnimeSection
-              title="⭐ Most Popular"
+              title="Most Popular"
               anime={popularAnime}
               sectionId="popular"
+              icon={<Star className="w-8 h-8 text-yellow-500" />}
             />
           )}
           
           {recentAnime.length > 0 && (
             <AnimeSection
-              title="🆕 Recently Added"
+              title="Recently Added"
               anime={recentAnime}
               sectionId="recent"
+              icon={<Plus className="w-8 h-8 text-green-500" />}
             />
           )}
           
           {topRatedAnime.length > 0 && (
             <AnimeSection
-              title="🏆 Top Rated"
+              title="Top Rated"
               anime={topRatedAnime}
               sectionId="top-rated"
+              icon={<Trophy className="w-8 h-8 text-amber-500" />}
             />
           )}
         </VerticalList>
