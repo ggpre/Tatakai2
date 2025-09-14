@@ -5,9 +5,36 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// WebOS specific utilities
+// WebOS and TV platform detection utilities
 export const isWebOS = () => {
-  return typeof window !== 'undefined' && 'webOSTV' in window;
+  if (typeof window === 'undefined') return false;
+  
+  // Check for various WebOS indicators
+  return !!(
+    'webOSTV' in window ||
+    'webOSTVjs' in window ||
+    (window.navigator && window.navigator.userAgent.includes('webOS')) ||
+    (window.navigator && window.navigator.userAgent.includes('LGTV')) ||
+    // Check for LG TV specific objects
+    'PalmServiceBridge' in window ||
+    // Check for general TV indicators that might use similar remote controls
+    window.innerWidth >= 1920 && window.innerHeight >= 1080
+  );
+};
+
+export const isTVRemoteCompatible = () => {
+  if (typeof window === 'undefined') return false;
+  
+  // Detect if this platform might support TV remote controls
+  return !!(
+    isWebOS() ||
+    // Tizen (Samsung TV)
+    'tizen' in window ||
+    // Android TV
+    (window.navigator && window.navigator.userAgent.includes('TV')) ||
+    // Large screen that might be a TV
+    (window.innerWidth >= 1280 && window.innerHeight >= 720)
+  );
 };
 
 export const isTV = () => {

@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { isWebOS } from '@/lib/utils';
 
 interface FocusableElement {
   id: string;
@@ -86,11 +85,15 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     const focusableElement = elements.get(id);
     if (!focusableElement) return;
 
-    // Blur current element
+    // First, remove focus from ALL elements to ensure clean state
+    document.querySelectorAll('.tv-focused').forEach(el => {
+      el.classList.remove('tv-focused');
+    });
+
+    // Blur current element using our tracked current focus
     if (currentFocus && currentFocus !== id) {
       const currentElement = elements.get(currentFocus);
       if (currentElement) {
-        currentElement.element.classList.remove('tv-focused');
         currentElement.onBlur?.();
       }
     }
@@ -225,93 +228,108 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     }
   }, [initialFocus, elements, currentFocus, focusElement]);
 
-  // WebOS and TV keyboard event handling
+  // Enhanced keyboard and TV remote event handling
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // Prevent default behavior for navigation keys
-      const navigationKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', ' '];
-      if (navigationKeys.includes(event.key)) {
+    const handleKeyEvents = (event: KeyboardEvent) => {
+      // Skip if focus is in an input field
+      const activeElement = document.activeElement;
+      if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+        return;
+      }
+
+      // Get both key name and key code for comprehensive handling
+      const { key, keyCode, code } = event;
+      
+      // Navigation keys that should prevent default behavior
+      const navigationKeys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter', ' ', 'Escape', 'Backspace'];
+      const navigationKeyCodes = [37, 38, 39, 40, 13, 32, 27, 8, 415, 19, 413, 417, 418, 419, 420];
+      
+      // Prevent default for navigation keys
+      if (navigationKeys.includes(key) || navigationKeyCodes.includes(keyCode)) {
         event.preventDefault();
         event.stopPropagation();
       }
 
-      switch (event.key) {
+      // Handle standard keyboard events (works for regular keyboards)
+      switch (key) {
         case 'ArrowLeft':
           moveLeft();
-          break;
+          return;
         case 'ArrowRight':
           moveRight();
-          break;
+          return;
         case 'ArrowUp':
           moveUp();
-          break;
+          return;
         case 'ArrowDown':
           moveDown();
-          break;
+          return;
         case 'Enter':
         case ' ':
           selectCurrent();
-          break;
+          return;
         case 'Escape':
         case 'Backspace':
           goBack();
-          break;
+          return;
       }
-    };
 
-    // WebOS specific key handling
-    const handleWebOSKeys = (event: KeyboardEvent) => {
-      // WebOS remote control key codes
-      switch (event.keyCode) {
-        case 37: // Left
-          event.preventDefault();
+      // Handle TV remote control key codes (works for WebOS and other TV platforms)
+      switch (keyCode) {
+        case 37: // Left Arrow
           moveLeft();
           break;
-        case 39: // Right
-          event.preventDefault();
+        case 39: // Right Arrow
           moveRight();
           break;
-        case 38: // Up
-          event.preventDefault();
+        case 38: // Up Arrow
           moveUp();
           break;
-        case 40: // Down
-          event.preventDefault();
+        case 40: // Down Arrow
           moveDown();
           break;
         case 13: // OK/Enter
-          event.preventDefault();
+        case 32: // Space (some remotes)
           selectCurrent();
           break;
-        case 8: // Back
-        case 27: // Menu/Exit
-          event.preventDefault();
+        case 8: // Back/Backspace
+        case 27: // Menu/Exit/Escape
           goBack();
           break;
+        // WebOS specific media keys
         case 415: // Play
-          // Handle play/pause
-          break;
+        case 417: // Fast Forward
+        case 412: // Rewind
         case 19: // Pause
-          // Handle pause
-          break;
         case 413: // Stop
-          // Handle stop
+        case 418: // Previous
+        case 419: // Next
+          // Media keys - can be handled by individual components
+          break;
+        // Color button keys (if needed)
+        case 403: // Red
+        case 404: // Green  
+        case 405: // Yellow
+        case 406: // Blue
+          // Color buttons - can be handled by individual components
+          break;
+      }
+
+      // Handle special codes that might be used by different TV platforms
+      switch (code) {
+        case 'BrowserBack':
+        case 'GoBack':
+          event.preventDefault();
+          goBack();
           break;
       }
     };
 
-    if (isWebOS()) {
-      document.addEventListener('keydown', handleWebOSKeys, true);
-    } else {
-      document.addEventListener('keydown', handleKeyDown, true);
-    }
+    // Always add the unified event handler
+    document.addEventListener('keydown', handleKeyEvents, true);
 
     return () => {
-      if (isWebOS()) {
-        document.removeEventListener('keydown', handleWebOSKeys, true);
-      } else {
-        document.removeEventListener('keydown', handleKeyDown, true);
-      }
+      document.removeEventListener('keydown', handleKeyEvents, true);
     };
   }, [moveLeft, moveRight, moveUp, moveDown, selectCurrent, goBack]);
 
