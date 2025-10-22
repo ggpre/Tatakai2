@@ -1,26 +1,15 @@
 'use client';
 
-import React, {
-  useEffect,
-  useRef,
-  useState,
-  useImperativeHandle,
-  useCallback,
-} from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { 
-  Play, 
-  Pause, 
-  ClipboardList, 
-  Rewind, 
-  FastForward, 
-  VolumeX, 
-  Volume2, 
-  MessageCircle, 
-  Maximize, 
-  Minimize 
-} from 'lucide-react';
-// Using minimal imports to avoid lucide-react issues
+import { Play, Pause, Volume2, VolumeX, Maximize, Settings, Subtitles } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import type Hls from 'hls.js';
 
 interface VideoSource {
@@ -39,647 +28,690 @@ interface VideoSubtitle {
 interface VideoPlayerProps {
   sources: VideoSource[];
   subtitles?: VideoSubtitle[];
-  onPlay?: () => void;
-  onPause?: () => void;
-  onShowEpisodes?: () => void;
 }
 
-export interface VideoPlayerRef {
-  play: () => Promise<void>;
-  pause: () => void;
-  currentTime: number;
-  duration: number;
-}
+export default function VideoPlayer({ sources, subtitles }: VideoPlayerProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [showControls, setShowControls] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [controlsTimeout, setControlsTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [currentSubtitle, setCurrentSubtitle] = useState<string>('off');
+  const [volume, setVolume] = useState(1);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [isVideoInitialized, setIsVideoInitialized] = useState(false);
+  const [pendingPlay, setPendingPlay] = useState(false);
 
-const VideoPlayer = React.forwardRef<VideoPlayerRef, VideoPlayerProps>(
-  ({ sources, subtitles, onPlay, onPause, onShowEpisodes }, ref) => {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const hlsRef = useRef<Hls | null>(null);
+  // Debug subtitles
+  console.log('VideoPlayer subtitles:', subtitles);
 
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [isMuted, setIsMuted] = useState(false);
-    const [currentTime, setCurrentTime] = useState(0);
-    const [duration, setDuration] = useState(0);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    const [showControls, setShowControls] = useState(true);
-    const [isFullscreen, setIsFullscreen] = useState(false);
+  // Get the best quality source
+  const getBestSource = () => {
+    if (!sources || sources.length === 0) return null;
     
-    // TV subtitle control states
-    const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
-    const [currentSubtitleTrack, setCurrentSubtitleTrack] = useState(0);
-    const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
-    const [focusedControl, setFocusedControl] = useState<'rewind' | 'play' | 'forward' | 'volume' | 'subtitle' | 'episodes' | 'fullscreen'>('play');
+    // Prefer m3u8 sources
+    const m3u8Sources = sources.filter(s => s.isM3U8);
+    if (m3u8Sources.length > 0) {
+      return m3u8Sources[0];
+    }
+    
+    // Otherwise use the first available source
+    return sources[0];
+  };
 
-    const [seekMessage, setSeekMessage] = useState<string | null>(null);
-    const seekMessageTimer = useRef<NodeJS.Timeout | null>(null);
-    const subtitleMenuRef = useRef<HTMLDivElement>(null);
-    const subtitleScrollContainerRef = useRef<HTMLDivElement>(null);
-    const subtitleItemsRef = useRef<(HTMLDivElement | null)[]>([]);
+  const currentSource = getBestSource();
 
-    const idleTimer = useRef<NodeJS.Timeout | null>(null);
+  // Get proxied URL for external video sources
+  const getProxiedUrl = (url: string) => {
+    // If it's already a proxy URL, return as is
+    if (url.startsWith('/api/video-proxy')) {
+      return url;
+    }
+    
+    // If it's an external URL, proxy it
+    if (url.startsWith('http')) {
+      return `/api/video-proxy?url=${encodeURIComponent(url)}`;
+    }
+    
+    return url;
+  };
 
-    const currentSource = sources.find((s) => s.isM3U8) ?? sources[0];
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !currentSource) return;
 
-    const getProxiedUrl = (url: string) =>
-      url.startsWith('/api/video-proxy')
-        ? url
-        : url.startsWith('http')
-        ? `/api/video-proxy?url=${encodeURIComponent(url)}`
-        : url;
+    const handleLoadedMetadata = () => {
+      setDuration(video.duration);
+      setIsLoading(false);
+    };
 
-    // Load video + HLS
-    useEffect(() => {
-      const video = videoRef.current;
-      if (!video || !currentSource) return;
+    const handleTimeUpdate = () => {
+      setCurrentTime(video.currentTime);
+    };
 
-      const loadVideo = async () => {
-        try {
-          setError(null);
-          setIsLoading(true);
-          const proxiedUrl = getProxiedUrl(currentSource.url);
+    const handlePlay = () => {
+      setIsPlaying(true);
+    };
 
-          if (currentSource.isM3U8) {
-            const Hls = (await import('hls.js')).default;
-            if (Hls.isSupported()) {
-              if (hlsRef.current) {
-                hlsRef.current.destroy();
-              }
-              const hls = new Hls();
-              hlsRef.current = hls;
-              hls.loadSource(proxiedUrl);
-              hls.attachMedia(video);
-              hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                setIsLoading(false);
-              });
-              hls.on(Hls.Events.ERROR, (_evt, data) => {
-                if (data.fatal) {
-                  setError('HLS error: ' + data.details);
-                  setIsLoading(false);
-                }
-              });
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-              video.src = proxiedUrl;
-            } else {
-              setError('HLS not supported');
-              setIsLoading(false);
-            }
-          } else {
-            video.src = proxiedUrl;
-          }
-        } catch (err) {
-          console.error(err);
-          setError('Failed to load video');
-          setIsLoading(false);
-        }
-      };
+    const handlePause = () => {
+      setIsPlaying(false);
+    };
 
-      loadVideo();
+    const handleVolumeChange = () => {
+      setVolume(video.volume);
+      setIsMuted(video.muted);
+    };
 
-      return () => {
-        if (hlsRef.current) {
-          hlsRef.current.destroy();
-          hlsRef.current = null;
-        }
-      };
-    }, [currentSource]);
+    const handleError = (e: Event) => {
+      console.error('Video error:', e);
+      setError('Failed to load video');
+      setIsLoading(false);
+    };
 
-    // Idle timer -> fake fullscreen
-    useEffect(() => {
-      const resetIdleTimer = () => {
-        if (idleTimer.current) clearTimeout(idleTimer.current);
-        idleTimer.current = setTimeout(() => {
-          setIsFullscreen(true);
-          setShowControls(false);
-        }, 30000); // Changed from 10000 to 30000 (30 seconds instead of 10)
-      };
+    const handleLoadStart = () => {
+      setIsLoading(true);
+      setError(null);
+    };
 
-      const activityEvents = ['keydown', 'click'];
-      activityEvents.forEach((evt) =>
-        window.addEventListener(evt, resetIdleTimer)
-      );
-
-      resetIdleTimer();
-
-      return () => {
-        if (idleTimer.current) clearTimeout(idleTimer.current);
-        activityEvents.forEach((evt) =>
-          window.removeEventListener(evt, resetIdleTimer)
-        );
-      };
-    }, []);
-
-    // Scroll focused subtitle into view
-    useEffect(() => {
-      if (showSubtitleMenu && subtitleItemsRef.current[currentSubtitleTrack] && subtitleScrollContainerRef.current) {
-        const targetElement = subtitleItemsRef.current[currentSubtitleTrack];
-        const container = subtitleScrollContainerRef.current;
-        
-        if (targetElement && container) {
-          const containerRect = container.getBoundingClientRect();
-          const targetRect = targetElement.getBoundingClientRect();
-          
-          // Check if element is out of view
-          const isOutOfView = 
-            targetRect.top < containerRect.top || 
-            targetRect.bottom > containerRect.bottom;
-          
-          if (isOutOfView) {
-            // Calculate the scroll position to center the element
-            const containerHeight = container.clientHeight;
-            const targetHeight = targetElement.offsetHeight;
-            const targetOffsetTop = targetElement.offsetTop;
-            
-            const scrollTop = targetOffsetTop - (containerHeight / 2) + (targetHeight / 2);
-            
-            container.scrollTo({
-              top: Math.max(0, scrollTop),
-              behavior: 'smooth'
-            });
-          }
-        }
+    const handleCanPlay = () => {
+      setIsLoading(false);
+      setIsVideoInitialized(true);
+      
+      // If there's a pending play request, execute it
+      if (pendingPlay) {
+        togglePlay();
       }
-    }, [showSubtitleMenu, currentSubtitleTrack]);
+    };
 
-    const togglePlay = useCallback(async () => {
-      const video = videoRef.current;
-      if (!video) return;
+    const handleLoadedData = () => {
+      setIsVideoInitialized(true);
+      if (pendingPlay) {
+        togglePlay();
+      }
+    };
+
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
+    video.addEventListener('volumechange', handleVolumeChange);
+    video.addEventListener('error', handleError);
+    video.addEventListener('loadstart', handleLoadStart);
+    video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('loadeddata', handleLoadedData);
+
+        // Load HLS.js for M3U8 streams
+    const loadVideo = async () => {
+      if (isVideoInitialized) {
+        setIsVideoInitialized(false);
+      }
+      
+      try {
+        console.log('Loading video source:', currentSource);
+        const proxiedUrl = getProxiedUrl(currentSource.url);
+        console.log('Using proxied URL:', proxiedUrl);
+        
+        setError(null);
+        setIsLoading(true);
+        setPendingPlay(false);
+        
+        if (currentSource.isM3U8) {
+          console.log('Loading M3U8 stream with HLS.js');
+          // Use HLS.js for M3U8 streams
+          const Hls = (await import('hls.js')).default;
+          
+          if (Hls.isSupported()) {
+            console.log('HLS.js is supported');
+            // Clean up previous HLS instance
+            if (hlsRef.current) {
+              hlsRef.current.destroy();
+              hlsRef.current = null;
+            }
+            
+            const hls = new Hls({
+              enableWorker: true,
+              lowLatencyMode: true,
+              debug: false,
+            });
+            
+            hlsRef.current = hls;
+            
+            console.log('Loading HLS source:', proxiedUrl);
+            
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+              console.log('HLS manifest parsed successfully');
+              setIsLoading(false);
+            });
+            
+            hls.loadSource(proxiedUrl);
+            hls.attachMedia(video);
+            
+            hls.on(Hls.Events.ERROR, (event: unknown, data: { type: string; details: string; fatal: boolean }) => {
+              console.error('HLS error event:', event);
+              console.error('HLS error data:', data);
+              console.error('HLS error type:', data.type);
+              console.error('HLS error details:', data.details);
+              console.error('HLS error fatal:', data.fatal);
+              
+              if (data.fatal) {
+                switch (data.type) {
+                  case Hls.ErrorTypes.NETWORK_ERROR:
+                    console.error('Fatal network error encountered, trying direct video element fallback...');
+                    // Try direct video element as fallback
+                    video.src = proxiedUrl;
+                    setError(`Network error: ${data.details}`);
+                    break;
+                  case Hls.ErrorTypes.MEDIA_ERROR:
+                    console.error('Fatal media error encountered, trying to recover...');
+                    setError(`Media error: ${data.details}`);
+                    break;
+                  default:
+                    console.error('Fatal error, cannot recover');
+                    setError(`HLS error: ${data.details || 'Unknown error'}`);
+                    break;
+                }
+                setIsLoading(false);
+              }
+            });
+          } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            // Native HLS support (Safari)
+            console.log('Using native HLS support');
+            const proxyUrl = `/api/video-proxy?url=${encodeURIComponent(currentSource.url)}`;
+            video.src = proxyUrl;
+          } else {
+            console.error('HLS not supported in this browser');
+            setError('HLS not supported in this browser');
+            setIsLoading(false);
+          }
+        } else {
+          // Regular video source
+          console.log('Loading regular video source');
+          const proxyUrl = `/api/video-proxy?url=${encodeURIComponent(currentSource.url)}`;
+          video.src = proxyUrl;
+        }
+      } catch (err) {
+        console.error('Error loading video:', err);
+        setError('Failed to load video');
+        setIsLoading(false);
+      }
+    };
+
+    loadVideo();
+
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
+      video.removeEventListener('volumechange', handleVolumeChange);
+      video.removeEventListener('error', handleError);
+      video.removeEventListener('loadstart', handleLoadStart);
+      video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('loadeddata', handleLoadedData);
+      
+      // Clean up HLS
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+      
+      // Clean up timeout
+      if (controlsTimeout) {
+        clearTimeout(controlsTimeout);
+      }
+    };
+  }, [currentSource]);
+
+  const togglePlay = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video || isLoading) return;
+
+    try {
       if (isPlaying) {
         video.pause();
         setIsPlaying(false);
       } else {
-        await video.play();
-        setIsPlaying(true);
-      }
-    }, [isPlaying]);
-
-    const toggleMute = () => {
-      const video = videoRef.current;
-      if (!video) return;
-      video.muted = !video.muted;
-      setIsMuted(video.muted);
-    };
-
-    const toggleFullscreen = () => {
-      setIsFullscreen((prev) => !prev);
-    };
-
-    const seek = (seconds: number) => {
-      const video = videoRef.current;
-      if (!video) return;
-      const newTime = Math.min(Math.max(video.currentTime + seconds, 0), duration);
-      video.currentTime = newTime;
-
-      if (seekMessageTimer.current) {
-        clearTimeout(seekMessageTimer.current);
-      }
-      setSeekMessage(seconds > 0 ? `>> +${seconds}s` : `<< ${seconds}s`);
-      seekMessageTimer.current = setTimeout(() => setSeekMessage(null), 1000);
-    };
-
-    const formatTime = (time: number) => {
-      const minutes = Math.floor(time / 60);
-      const seconds = Math.floor(time % 60);
-      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    };
-
-    // Subtitle control functions
-    const toggleSubtitles = useCallback(() => {
-      if (videoRef.current) {
-        const textTracks = videoRef.current.textTracks;
-        if (textTracks.length > 0) {
-          if (subtitlesEnabled) {
-            // Disable all tracks
-            for (let i = 0; i < textTracks.length; i++) {
-              textTracks[i].mode = 'disabled';
-            }
-            setSubtitlesEnabled(false);
-          } else {
-            // Enable current track
-            if (textTracks[currentSubtitleTrack]) {
-              textTracks[currentSubtitleTrack].mode = 'showing';
-            }
-            setSubtitlesEnabled(true);
-          }
-        }
-      }
-    }, [subtitlesEnabled, currentSubtitleTrack]);
-
-    const switchSubtitleTrack = useCallback((trackIndex: number) => {
-      if (videoRef.current) {
-        const textTracks = videoRef.current.textTracks;
-        // Disable all tracks
-        for (let i = 0; i < textTracks.length; i++) {
-          textTracks[i].mode = 'disabled';
-        }
-        // Enable selected track
-        if (textTracks[trackIndex]) {
-          textTracks[trackIndex].mode = 'showing';
-          setCurrentSubtitleTrack(trackIndex);
-          setSubtitlesEnabled(true);
-        }
-      }
-    }, []);
-
-    // LG TV remote keys
-    useEffect(() => {
-      const handleKey = (e: KeyboardEvent) => {
-        if (showSubtitleMenu) {
-          // Subtitle menu navigation
-          switch (e.key) {
-            case 'ArrowUp':
-              e.preventDefault();
-              if (currentSubtitleTrack > 0) {
-                setCurrentSubtitleTrack(currentSubtitleTrack - 1);
-              }
-              break;
-            case 'ArrowDown':
-              e.preventDefault();
-              if (subtitles && currentSubtitleTrack < subtitles.length - 1) {
-                setCurrentSubtitleTrack(currentSubtitleTrack + 1);
-              }
-              break;
-            case 'Enter':
-              e.preventDefault();
-              switchSubtitleTrack(currentSubtitleTrack);
-              setShowSubtitleMenu(false);
-              break;
-            case 'Escape':
-            case 'Backspace':
-              e.preventDefault();
-              setShowSubtitleMenu(false);
-              break;
-          }
+        // Wait for video to be ready before playing
+        if (video.readyState < 3) {
+          setPendingPlay(true);
           return;
         }
-
-        switch (e.key) {
-          case 'Enter': // OK button
-            e.preventDefault();
-            if (focusedControl === 'rewind') {
-              seek(-10);
-            } else if (focusedControl === 'play') {
-              togglePlay();
-            } else if (focusedControl === 'forward') {
-              seek(10);
-            } else if (focusedControl === 'volume') {
-              toggleMute();
-            } else if (focusedControl === 'subtitle') {
-              if (subtitles && subtitles.length > 0) {
-                setShowSubtitleMenu(true);
-              } else {
-                toggleSubtitles();
-              }
-            } else if (focusedControl === 'episodes') {
-              onShowEpisodes?.();
-            } else if (focusedControl === 'fullscreen') {
-              toggleFullscreen();
-            }
-            setShowControls(true);
-            break;
-          case 'ArrowLeft':
-            e.preventDefault();
-            // Always show controls first on arrow key press
-            setShowControls(true);
-            if (showControls || true) { // Force control navigation for TV
-              // Navigate controls
-              const controls = ['rewind', 'play', 'forward', 'volume', 'subtitle', 'episodes', 'fullscreen'] as const;
-              const currentIndex = controls.indexOf(focusedControl);
-              if (currentIndex > 0) {
-                setFocusedControl(controls[currentIndex - 1]);
-              }
-            }
-            break;
-          case 'ArrowRight':
-            e.preventDefault();
-            // Always show controls first on arrow key press
-            setShowControls(true);
-            if (showControls || true) { // Force control navigation for TV
-              // Navigate controls
-              const controls = ['rewind', 'play', 'forward', 'volume', 'subtitle', 'episodes', 'fullscreen'] as const;
-              const currentIndex = controls.indexOf(focusedControl);
-              if (currentIndex < controls.length - 1) {
-                setFocusedControl(controls[currentIndex + 1]);
-              }
-            }
-            break;
-          case 'ArrowUp':
-            e.preventDefault();
-            setShowControls(true);
-            // You can add volume up or other functionality here
-            break;
-          case 'ArrowDown':
-            e.preventDefault();
-            setShowControls(true);
-            // Show/hide controls or other functionality
-            break;
-          case 'F5': // F5 for rewind (10 seconds back)
-          case 'KeyR': // R key for rewind
-            e.preventDefault();
-            seek(-10);
-            setShowControls(true);
-            break;
-          case 'F6': // F6 for fast forward (10 seconds forward) 
-          case 'KeyF': // F key for fast forward
-            e.preventDefault();
-            seek(10);
-            setShowControls(true);
-            break;
-          case 'Backspace':
-          case 'Escape':
-            e.preventDefault();
-            if (isFullscreen) {
-              setIsFullscreen(false);
-            } else {
-              console.log('Go back from video page');
-            }
-            break;
-          case 'F1': // Red button - Toggle subtitles
-          case 'ColorF0RED':
-            e.preventDefault();
-            toggleSubtitles();
-            setShowControls(true);
-            break;
+        
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          await playPromise;
+          setIsPlaying(true);
+          setPendingPlay(false);
         }
-      };
-
-      window.addEventListener('keydown', handleKey);
-      return () => window.removeEventListener('keydown', handleKey);
-    }, [togglePlay, seek, isFullscreen, focusedControl, showControls, showSubtitleMenu, currentSubtitleTrack, subtitles, toggleSubtitles, switchSubtitleTrack, toggleMute, toggleFullscreen]);
-
-    // Expose ref methods
-    useImperativeHandle(
-      ref,
-      () => ({
-        play: async () => {
-          if (videoRef.current) await videoRef.current.play();
-        },
-        pause: () => {
-          videoRef.current?.pause();
-        },
-        get currentTime() {
-          return videoRef.current?.currentTime || 0;
-        },
-        set currentTime(t: number) {
-          if (videoRef.current) videoRef.current.currentTime = t;
-        },
-        get duration() {
-          return videoRef.current?.duration || 0;
-        },
-      }),
-      []
-    );
-
-    if (!currentSource) {
-      return (
-        <div className="flex items-center justify-center h-full bg-black text-white">
-          No video source available
-        </div>
-      );
+      }
+    } catch (error) {
+      console.error('Error toggling play:', error);
+      setIsPlaying(false);
+      setPendingPlay(false);
     }
+  }, [isLoading, isPlaying]);
 
+  const toggleMute = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.muted = !video.muted;
+    setIsMuted(video.muted);
+  };
+
+  const handleVolumeChange = (newVolume: number) => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.volume = newVolume;
+    setVolume(newVolume);
+    if (newVolume === 0) {
+      setIsMuted(true);
+    } else if (isMuted) {
+      setIsMuted(false);
+      video.muted = false;
+    }
+  };
+
+  const toggleFullscreen = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      video.requestFullscreen();
+    }
+  };
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const video = videoRef.current;
+    if (!video || !duration) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    video.currentTime = pos * duration;
+  };
+
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const showControlsTemporarily = () => {
+    setShowControls(true);
+    
+    if (controlsTimeout) {
+      clearTimeout(controlsTimeout);
+    }
+    
+    const timeout = setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
+    
+    setControlsTimeout(timeout);
+  };
+
+  const handleMouseMove = () => {
+    showControlsTemporarily();
+  };
+
+  const handleVideoClick = () => {
+    togglePlay();
+    showControlsTemporarily();
+  };
+
+  // Initialize subtitles when available
+  useEffect(() => {
+    if (subtitles && subtitles.length > 0 && currentSubtitle === 'off') {
+      console.log('Initializing subtitles:', subtitles);
+      // Set first subtitle as default
+      setCurrentSubtitle(subtitles[0].lang);
+      
+      // Enable first subtitle track
+      const video = videoRef.current;
+      if (video) {
+        setTimeout(() => {
+          const tracks = video.textTracks;
+          console.log('Text tracks found:', tracks.length);
+          if (tracks.length > 0) {
+            tracks[0].mode = 'showing';
+            console.log('Enabled first subtitle track:', tracks[0]);
+            for (let i = 1; i < tracks.length; i++) {
+              tracks[i].mode = 'hidden';
+            }
+          }
+        }, 500); // Increased delay to ensure tracks are loaded
+      }
+    }
+  }, [subtitles, currentSubtitle]);
+
+  const handleSubtitleChange = (lang: string) => {
+    console.log('Changing subtitle to:', lang);
+    const video = videoRef.current;
+    if (!video) return;
+
+    const tracks = video.textTracks;
+    console.log('Available tracks:', tracks.length);
+    
+    for (let i = 0; i < tracks.length; i++) {
+      const track = tracks[i];
+      console.log(`Track ${i}:`, track.language, track.label);
+      
+      if (lang === 'off') {
+        track.mode = 'disabled';
+      } else if (track.language === lang || track.label === lang) {
+        track.mode = 'showing';
+        console.log('Enabled track:', track);
+      } else {
+        track.mode = 'hidden';
+      }
+    }
+    setCurrentSubtitle(lang);
+  };
+
+  const handlePlaybackRateChange = (rate: number) => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.playbackRate = rate;
+    setPlaybackRate(rate);
+  };
+
+  if (!currentSource) {
     return (
-      <div
-        className={`bg-black ${
-          isFullscreen ? 'fixed inset-0 z-[9999]' : 'relative w-full h-full'
+      <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-white">
+        <div className="text-center">
+          <p className="text-xl">No video source available</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      className="relative w-full h-full bg-black group cursor-pointer"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setShowControls(false)}
+      onClick={handleVideoClick}
+    >
+      <video
+        ref={videoRef}
+        className="w-full h-full object-contain"
+        playsInline
+        preload="metadata"
+        controls={false}
+        crossOrigin="anonymous"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {subtitles?.map((subtitle, index) => (
+          <track
+            key={index}
+            kind="subtitles"
+            src={getProxiedUrl(subtitle.url)}
+            srcLang={subtitle.lang}
+            label={subtitle.label || subtitle.lang}
+            default={index === 0}
+          />
+        ))}
+        Your browser does not support the video tag.
+      </video>
+
+      {/* Loading overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-white">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-500 mx-auto mb-4"></div>
+            <p className="text-lg">Loading video...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Error overlay */}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-white">
+          <div className="text-center">
+            <p className="text-lg text-red-400 mb-4">{error}</p>
+            <Button onClick={() => window.location.reload()} variant="outline">
+              Retry
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Controls overlay */}
+      <div 
+        className={`absolute inset-0 transition-opacity duration-300 pointer-events-none ${
+          showControls ? 'opacity-100' : 'opacity-0'
         }`}
       >
-        <video
-          ref={videoRef}
-          className="w-full h-full object-contain"
-          playsInline
-          crossOrigin="anonymous"
-          onPlay={() => {
-            setIsPlaying(true);
-            onPlay?.();
-          }}
-          onPause={() => {
-            setIsPlaying(false);
-            onPause?.();
-          }}
-          onTimeUpdate={() =>
-            setCurrentTime(videoRef.current?.currentTime || 0)
-          }
-          onLoadedMetadata={() =>
-            setDuration(videoRef.current?.duration || 0)
-          }
-        >
-          {subtitles?.map((s, i) => (
-            <track
-              key={i}
-              kind="subtitles"
-              src={getProxiedUrl(s.url)}
-              srcLang={s.lang}
-              label={s.label || s.lang}
-              default={i === 0}
-            />
-          ))}
-        </video>
-
-        {/* Loading */}
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-white">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-500"></div>
+        {/* Play/Pause button in center */}
+        {!isPlaying && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
+            <Button
+              size="lg"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                togglePlay();
+              }}
+              className="text-white hover:text-rose-500 bg-black/30 hover:bg-black/50 rounded-full p-6 backdrop-blur-sm"
+            >
+              <Play className="w-16 h-16" />
+            </Button>
           </div>
         )}
 
-        {/* Error */}
-        {error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-white">
-            <div>
-              <p className="mb-4">{error}</p>
-              <Button onClick={() => window.location.reload()}>Retry</Button>
+        {/* Bottom controls */}
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-6 pointer-events-auto">
+          {/* Progress bar */}
+          <div 
+            className="w-full h-2 bg-white/20 rounded-full mb-6 cursor-pointer group/progress hover:h-3 transition-all"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSeek(e);
+            }}
+          >
+            <div 
+              className="h-full bg-rose-500 rounded-full transition-all relative"
+              style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }}
+            >
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-rose-500 rounded-full opacity-0 group-hover/progress:opacity-100 transition-opacity"></div>
             </div>
           </div>
-        )}
 
-        {/* Seek overlay */}
-        {seekMessage && (
-          <div className="absolute inset-0 flex items-center justify-center text-white text-3xl font-bold bg-black/20">
-            {seekMessage}
-          </div>
-        )}
-
-        {/* Controls */}
-        {showControls && (
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent">
-            {/* Progress Bar */}
-            <div className="px-4 py-2">
-              <div className="w-full bg-white/20 rounded-full h-1 mb-4 cursor-pointer" 
-                   onClick={(e) => {
-                     const rect = e.currentTarget.getBoundingClientRect();
-                     const clickX = e.clientX - rect.left;
-                     const percentage = clickX / rect.width;
-                     const newTime = percentage * duration;
-                     if (videoRef.current) {
-                       videoRef.current.currentTime = newTime;
-                     }
-                   }}
-              >
-                <div 
-                  className="bg-rose-500 h-1 rounded-full transition-all duration-200" 
-                  style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-                ></div>
-              </div>
-            </div>
-            
-            <div className="px-4 pb-4 flex items-center justify-between text-white">
-              <div className="flex items-center space-x-4">
-              {/* Rewind 10s Button */}
-              <Button 
-                variant="ghost" 
-                onClick={() => seek(-10)} 
-                className={`p-2 ${focusedControl === 'rewind' ? 'ring-4 ring-rose-500 bg-rose-500/20' : ''}`}
-              >
-                <div className="flex items-center">
-                  <Rewind className="w-5 h-5" />
-                  <span className="text-xs ml-1">10s</span>
-                </div>
-              </Button>
-
-              <Button 
-                variant="ghost" 
-                onClick={togglePlay} 
-                className={`p-2 ${focusedControl === 'play' ? 'ring-4 ring-rose-500 bg-rose-500/20' : ''}`}
+          {/* Control buttons */}
+          <div className="flex items-center justify-between text-white">
+            <div className="flex items-center space-x-6">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePlay();
+                }}
+                className="text-white hover:text-rose-500 hover:bg-white/10 rounded-full p-2"
               >
                 {isPlaying ? (
-                  <Pause className="w-5 h-5" />
+                  <Pause className="w-6 h-6" />
                 ) : (
-                  <Play className="w-5 h-5" />
+                  <Play className="w-6 h-6" />
                 )}
               </Button>
 
-              {/* Forward 10s Button */}
-              <Button 
-                variant="ghost" 
-                onClick={() => seek(10)} 
-                className={`p-2 ${focusedControl === 'forward' ? 'ring-4 ring-rose-500 bg-rose-500/20' : ''}`}
-              >
-                <div className="flex items-center">
-                  <FastForward className="w-5 h-5" />
-                  <span className="text-xs ml-1">10s</span>
-                </div>
-              </Button>
+              <div className="flex items-center space-x-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleMute();
+                  }}
+                  className="text-white hover:text-rose-500 hover:bg-white/10 rounded-full p-2"
+                >
+                  {isMuted ? (
+                    <VolumeX className="w-6 h-6" />
+                  ) : (
+                    <Volume2 className="w-6 h-6" />
+                  )}
+                </Button>
 
-              <Button 
-                variant="ghost" 
-                onClick={toggleMute} 
-                className={`p-2 ${focusedControl === 'volume' ? 'ring-4 ring-rose-500 bg-rose-500/20' : ''}`}
-              >
-                {isMuted ? (
-                  <VolumeX className="w-5 h-5" />
-                ) : (
-                  <Volume2 className="w-5 h-5" />
-                )}
-              </Button>
+                {/* Volume slider */}
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={volume}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    handleVolumeChange(parseFloat(e.target.value));
+                  }}
+                  className="w-20 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{
+                    background: `linear-gradient(to right, #f43f5e 0%, #f43f5e ${volume * 100}%, rgba(255,255,255,0.2) ${volume * 100}%, rgba(255,255,255,0.2) 100%)`
+                  }}
+                />
+              </div>
 
-              <span>
+              <span className="text-sm font-medium">
                 {formatTime(currentTime)} / {formatTime(duration)}
               </span>
             </div>
 
-              <div className="flex items-center space-x-4">
-                {/* TV-friendly Subtitle Button */}
-                <Button 
-                  variant="ghost" 
-                  onClick={() => {
-                    if (subtitles && subtitles.length > 0) {
-                      setShowSubtitleMenu(true);
-                    } else {
-                      toggleSubtitles();
-                    }
-                  }}
-                  className={`p-2 relative ${focusedControl === 'subtitle' ? 'ring-4 ring-rose-500 bg-rose-500/20' : ''} ${subtitlesEnabled ? 'text-rose-400' : ''}`}
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  {subtitlesEnabled && (
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-rose-500 rounded-full"></div>
-                  )}
-                </Button>
-
-                {/* Episodes Button */}
-                <Button 
-                  variant="ghost" 
-                  onClick={() => onShowEpisodes?.()} 
-                  className={`p-2 ${focusedControl === 'episodes' ? 'ring-4 ring-rose-500 bg-rose-500/20' : ''}`}
-                >
-                  <div className="flex items-center">
-                    <ClipboardList className="w-5 h-5" />
-                  </div>
-                </Button>
-
-                <Button 
-                  variant="ghost" 
-                  onClick={toggleFullscreen} 
-                  className={`p-2 ${focusedControl === 'fullscreen' ? 'ring-4 ring-rose-500 bg-rose-500/20' : ''}`}
-                >
-                  {isFullscreen ? (
-                    <Minimize className="w-5 h-5" />
+            <div className="flex items-center space-x-4">
+              {/* Subtitle selector - Always show */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className={`text-white hover:text-rose-500 hover:bg-white/10 rounded-full p-2 ${
+                      currentSubtitle !== 'off' && subtitles && subtitles.length > 0 ? 'text-rose-500' : ''
+                    }`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Subtitles className="w-6 h-6" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-black/90 backdrop-blur-sm border-white/20">
+                  <DropdownMenuItem
+                    onClick={() => handleSubtitleChange('off')}
+                    className={`text-white hover:bg-white/10 ${
+                      currentSubtitle === 'off' ? 'text-rose-500' : ''
+                    }`}
+                  >
+                    Off
+                  </DropdownMenuItem>
+                  {subtitles && subtitles.length > 0 ? (
+                    <>
+                      <DropdownMenuSeparator className="bg-white/20" />
+                      {subtitles.map((subtitle) => (
+                        <DropdownMenuItem
+                          key={subtitle.lang}
+                          onClick={() => handleSubtitleChange(subtitle.lang)}
+                          className={`text-white hover:bg-white/10 ${
+                            currentSubtitle === subtitle.lang ? 'text-rose-500' : ''
+                          }`}
+                        >
+                          {subtitle.label || subtitle.lang}
+                        </DropdownMenuItem>
+                      ))}
+                    </>
                   ) : (
-                    <Maximize className="w-5 h-5" />
+                    <>
+                      <DropdownMenuSeparator className="bg-white/20" />
+                      <DropdownMenuItem className="text-gray-400 cursor-default">
+                        No subtitles available
+                      </DropdownMenuItem>
+                    </>
                   )}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-        {/* TV Subtitle Menu */}
-        {showSubtitleMenu && subtitles && subtitles.length > 0 && (
-          <div 
-            ref={subtitleMenuRef}
-            className="absolute bottom-20 right-4 bg-black/90 backdrop-blur-lg rounded-lg p-4 min-w-[200px] max-w-[300px] text-white"
-          >
-            <h3 className="text-lg font-bold mb-3 flex items-center">
-              <MessageCircle className="w-5 h-5 mr-2" />
-              Subtitles
-            </h3>
-            <div 
-              ref={subtitleScrollContainerRef}
-              className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2"
-            >
-              <div 
-                ref={(el) => { subtitleItemsRef.current[-1] = el; }}
-                className={`p-2 rounded cursor-pointer transition-all ${
-                  !subtitlesEnabled 
-                    ? 'bg-rose-500/30 ring-2 ring-rose-500' 
-                    : 'hover:bg-gray-700'
-                } ${currentSubtitleTrack === -1 ? 'ring-2 ring-blue-500' : ''}`}
-                onClick={() => {
-                  toggleSubtitles();
-                  setShowSubtitleMenu(false);
+              {/* Settings menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-white hover:text-rose-500 hover:bg-white/10 rounded-full p-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Settings className="w-6 h-6" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="bg-black/90 backdrop-blur-sm border-white/20">
+                  {/* Subtitle Settings */}
+                  {subtitles && subtitles.length > 0 && (
+                    <>
+                      <DropdownMenuItem className="text-white hover:bg-white/10 cursor-default">
+                        Subtitles
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator className="bg-white/20" />
+                      <DropdownMenuItem
+                        onClick={() => handleSubtitleChange('off')}
+                        className={`text-white hover:bg-white/10 ${
+                          currentSubtitle === 'off' ? 'text-rose-500' : ''
+                        }`}
+                      >
+                        Off
+                      </DropdownMenuItem>
+                      {subtitles.map((subtitle) => (
+                        <DropdownMenuItem
+                          key={subtitle.lang}
+                          onClick={() => handleSubtitleChange(subtitle.lang)}
+                          className={`text-white hover:bg-white/10 ${
+                            currentSubtitle === subtitle.lang ? 'text-rose-500' : ''
+                          }`}
+                        >
+                          {subtitle.label || subtitle.lang}
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator className="bg-white/20" />
+                    </>
+                  )}
+                  
+                  {/* Playback Speed Settings */}
+                  <DropdownMenuItem className="text-white hover:bg-white/10 cursor-default">
+                    Playback Speed
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/20" />
+                  {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((rate) => (
+                    <DropdownMenuItem
+                      key={rate}
+                      onClick={() => handlePlaybackRateChange(rate)}
+                      className={`text-white hover:bg-white/10 ${
+                        playbackRate === rate ? 'text-rose-500' : ''
+                      }`}
+                    >
+                      {rate}x
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleFullscreen();
                 }}
+                className="text-white hover:text-rose-500 hover:bg-white/10 rounded-full p-2"
               >
-                Off
-              </div>
-              {subtitles.map((subtitle, index) => (
-                <div
-                  key={index}
-                  ref={(el) => { subtitleItemsRef.current[index] = el; }}
-                  className={`p-2 rounded cursor-pointer transition-all ${
-                    subtitlesEnabled && currentSubtitleTrack === index 
-                      ? 'bg-rose-500/30 ring-2 ring-rose-500' 
-                      : 'hover:bg-gray-700'
-                  } ${currentSubtitleTrack === index ? 'ring-2 ring-blue-500' : ''}`}
-                  onClick={() => {
-                    switchSubtitleTrack(index);
-                    setShowSubtitleMenu(false);
-                  }}
-                >
-                  {subtitle.label || subtitle.lang}
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 text-xs text-gray-400 text-center">
-              Use ↑↓ to navigate • Enter to select • Esc to close
+                <Maximize className="w-6 h-6" />
+              </Button>
             </div>
           </div>
-        )}
+        </div>
       </div>
-    );
-  }
-);
-
-VideoPlayer.displayName = 'VideoPlayer';
-export default VideoPlayer;
+    </div>
+  );
+}

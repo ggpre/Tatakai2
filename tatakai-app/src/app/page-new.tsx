@@ -1,12 +1,16 @@
+'use client';
+
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { AnimeAPI, type HomePageData } from '../services/api';
-import TVHeroSection from '../components/tv/TVHeroSection';
-import TVAnimeCarousel from '../components/tv/TVAnimeCarousel';
-import TVTop10Section from '../components/tv/TVTop10Section';
-import LoadingScreen from '../components/tv/LoadingScreen';
+import HeroSection from '@/components/HeroSection';
+import AnimeCarousel from '@/components/AnimeCarousel';
+import Top10Section from '@/components/Top10Section';
+import { AnimeAPI, type HomePageData } from '@/lib/api';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertCircle } from 'lucide-react';
 
-const HomePage: React.FC = () => {
+const HomePage = () => {
   const [homeData, setHomeData] = useState<HomePageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -15,21 +19,16 @@ const HomePage: React.FC = () => {
     const fetchHomeData = async () => {
       try {
         setLoading(true);
-        setError(null);
-        
-        console.log('Fetching home page data...');
         const data = await AnimeAPI.getHomePage();
         
-        if (data && data.success) {
+        if (data.success) {
           setHomeData(data);
-          console.log('Home data set successfully');
         } else {
-          console.error('API response success is false:', data);
           setError('Failed to load anime data');
         }
       } catch (err) {
         console.error('Error fetching home data:', err);
-        setError('Unable to connect to anime service. Please check your internet connection.');
+        setError('Unable to connect to anime service');
       } finally {
         setLoading(false);
       }
@@ -39,52 +38,82 @@ const HomePage: React.FC = () => {
   }, []);
 
   const fadeInUp = {
-    hidden: { opacity: 0, y: 30 },
+    hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0 }
   };
 
   if (loading) {
-    return <LoadingScreen />;
+    return (
+      <div className="min-h-screen">
+        {/* Hero Skeleton */}
+        <div className="h-screen relative">
+          <Skeleton className="absolute inset-0" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent" />
+          <div className="relative z-10 h-full flex items-center max-w-7xl mx-auto px-4">
+            <div className="max-w-2xl space-y-4">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-20 w-full" />
+              <div className="flex space-x-4">
+                <Skeleton className="h-12 w-32" />
+                <Skeleton className="h-12 w-32" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Skeletons */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="space-y-6">
+              <Skeleton className="h-8 w-64" />
+              <div className="flex space-x-4 overflow-x-auto">
+                {[...Array(6)].map((_, j) => (
+                  <div key={j} className="flex-shrink-0 w-48">
+                    <Skeleton className="h-64 w-full mb-3" />
+                    <Skeleton className="h-4 w-full mb-2" />
+                    <Skeleton className="h-3 w-3/4" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-8 tv-safe-area">
-        <div className="text-center space-y-6">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h2 className="text-4xl font-bold text-white">Connection Error</h2>
-          <p className="text-2xl text-gray-300 max-w-2xl">
-            {error}
-          </p>
-          <button 
-            className="tv-button bg-red-600 hover:bg-red-700 text-white text-2xl px-8 py-4 rounded-lg"
-            onClick={() => window.location.reload()}
-            data-focusable="true"
-          >
-            Try Again
-          </button>
-        </div>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Alert className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {error}. Please try refreshing the page.
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
 
   if (!homeData?.data) {
     return (
-      <div className="min-h-screen flex items-center justify-center tv-safe-area">
-        <p className="text-2xl text-gray-400">No data available</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">No data available</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-white tv-safe-area">
+    <div className="min-h-screen">
       {/* Hero Section */}
       {homeData.data.spotlightAnimes && homeData.data.spotlightAnimes.length > 0 && (
-        <TVHeroSection spotlightAnimes={homeData.data.spotlightAnimes} />
+        <HeroSection spotlightAnimes={homeData.data.spotlightAnimes} />
       )}
 
       {/* Main Content */}
-      <div className="tv-container">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Latest Episodes */}
         {homeData.data.latestEpisodeAnimes && homeData.data.latestEpisodeAnimes.length > 0 && (
           <motion.div
@@ -92,12 +121,12 @@ const HomePage: React.FC = () => {
             animate="visible"
             variants={fadeInUp}
             transition={{ delay: 0.2 }}
-            className="mb-12"
           >
-            <TVAnimeCarousel
+            <AnimeCarousel
               title="Latest Episodes"
               animes={homeData.data.latestEpisodeAnimes}
-              sectionId="latest-episodes"
+              size="md"
+              viewAllLink="/category/recently-updated"
             />
           </motion.div>
         )}
@@ -109,11 +138,8 @@ const HomePage: React.FC = () => {
             animate="visible"
             variants={fadeInUp}
             transition={{ delay: 0.4 }}
-            className="mb-12"
           >
-            <TVTop10Section 
-              top10Data={homeData.data.top10Animes}
-            />
+            <Top10Section top10Animes={homeData.data.top10Animes} />
           </motion.div>
         )}
 
@@ -124,12 +150,13 @@ const HomePage: React.FC = () => {
             animate="visible"
             variants={fadeInUp}
             transition={{ delay: 0.6 }}
-            className="mb-12"
           >
-            <TVAnimeCarousel
+            <AnimeCarousel
               title="Trending Now"
               animes={homeData.data.trendingAnimes}
-              sectionId="trending"
+              showRank={true}
+              size="md"
+              viewAllLink="/trending"
             />
           </motion.div>
         )}
@@ -141,12 +168,12 @@ const HomePage: React.FC = () => {
             animate="visible"
             variants={fadeInUp}
             transition={{ delay: 0.8 }}
-            className="mb-12"
           >
-            <TVAnimeCarousel
+            <AnimeCarousel
               title="Most Popular"
               animes={homeData.data.mostPopularAnimes}
-              sectionId="popular"
+              size="md"
+              viewAllLink="/category/most-popular"
             />
           </motion.div>
         )}
@@ -158,12 +185,12 @@ const HomePage: React.FC = () => {
             animate="visible"
             variants={fadeInUp}
             transition={{ delay: 1.0 }}
-            className="mb-12"
           >
-            <TVAnimeCarousel
+            <AnimeCarousel
               title="Currently Airing"
               animes={homeData.data.topAiringAnimes}
-              sectionId="airing"
+              size="md"
+              viewAllLink="/category/top-airing"
             />
           </motion.div>
         )}
@@ -175,12 +202,12 @@ const HomePage: React.FC = () => {
             animate="visible"
             variants={fadeInUp}
             transition={{ delay: 1.2 }}
-            className="mb-12"
           >
-            <TVAnimeCarousel
+            <AnimeCarousel
               title="Top Rated"
               animes={homeData.data.mostFavoriteAnimes}
-              sectionId="favorite"
+              size="md"
+              viewAllLink="/category/most-favorite"
             />
           </motion.div>
         )}
@@ -192,12 +219,12 @@ const HomePage: React.FC = () => {
             animate="visible"
             variants={fadeInUp}
             transition={{ delay: 1.4 }}
-            className="mb-12"
           >
-            <TVAnimeCarousel
+            <AnimeCarousel
               title="Recently Completed"
               animes={homeData.data.latestCompletedAnimes}
-              sectionId="completed"
+              size="md"
+              viewAllLink="/category/completed"
             />
           </motion.div>
         )}
@@ -209,12 +236,13 @@ const HomePage: React.FC = () => {
             animate="visible"
             variants={fadeInUp}
             transition={{ delay: 1.6 }}
-            className="pb-16"
+            className="pb-12"
           >
-            <TVAnimeCarousel
+            <AnimeCarousel
               title="Upcoming Anime"
               animes={homeData.data.topUpcomingAnimes}
-              sectionId="upcoming"
+              size="md"
+              viewAllLink="/category/top-upcoming"
             />
           </motion.div>
         )}

@@ -5,8 +5,6 @@ import { motion } from 'framer-motion';
 import HeroSection from '@/components/HeroSection';
 import AnimeCarousel from '@/components/AnimeCarousel';
 import Top10Section from '@/components/Top10Section';
-import TVHomePage from '@/components/TVHomePageReactTV';
-import { useScreenDetection } from '@/hooks/useScreenDetection';
 import { AnimeAPI, type HomePageData } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -36,7 +34,6 @@ const HomePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
-  const { deviceType } = useScreenDetection();
 
   // Prevent hydration mismatches
   useEffect(() => {
@@ -73,24 +70,15 @@ const HomePage = () => {
     }
   }, [mounted]);
 
-  // Don't render anything until mounted to prevent hydration issues
-  if (!mounted) {
-    return <HeroSkeleton />;
-  }
-
-  // Debug: Log device detection
-  console.log('Device Detection:', { deviceType, width: window.innerWidth, height: window.innerHeight });
-
-  // Render TV interface for TV devices
-  if (deviceType === 'tv') {
-    console.log('Rendering TV interface');
-    return <TVHomePage />;
-  }
-
   const fadeInUp = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0 }
   };
+
+  // Don't render anything until mounted to prevent hydration issues
+  if (!mounted) {
+    return <HeroSkeleton />;
+  }
 
   if (loading) {
     return (
@@ -141,14 +129,13 @@ const HomePage = () => {
 
   return (
     <div className="min-h-screen">
-     
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-         {/* Hero Section */}
+      {/* Hero Section */}
       {homeData.data.spotlightAnimes && homeData.data.spotlightAnimes.length > 0 && (
         <HeroSection spotlightAnimes={homeData.data.spotlightAnimes} />
       )}
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Latest Episodes */}
         {homeData.data.latestEpisodeAnimes && homeData.data.latestEpisodeAnimes.length > 0 && (
           <motion.div

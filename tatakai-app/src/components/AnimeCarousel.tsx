@@ -79,9 +79,6 @@ const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
               variant="outline"
               size="sm"
               onClick={() => scroll('left')}
-              data-keyboard-nav
-              tabIndex={-1}
-              aria-label="Scroll left"
               className="h-8 w-8 p-0"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -90,9 +87,6 @@ const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
               variant="outline"
               size="sm"
               onClick={() => scroll('right')}
-              data-keyboard-nav
-              tabIndex={-1}
-              aria-label="Scroll right"
               className="h-8 w-8 p-0"
             >
               <ChevronRight className="w-4 h-4" />
@@ -101,14 +95,7 @@ const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
 
           {/* View All Link */}
           {viewAllLink && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              asChild
-              data-keyboard-nav
-              tabIndex={-1}
-              aria-label={`View all ${title}`}
-            >
+            <Button variant="ghost" size="sm" asChild>
               <a href={viewAllLink}>View All</a>
             </Button>
           )}

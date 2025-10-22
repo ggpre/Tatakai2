@@ -4,7 +4,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { AnimeAPI, type EpisodeServersResponse, type EpisodeSourcesResponse, type AnimeEpisodesResponse, type Episode, type AnimeInfoResponse } from '@/lib/api';
-import { useScreenDetection } from '@/hooks/useScreenDetection';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,18 +16,8 @@ const WatchPage = () => {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { deviceType } = useScreenDetection();
   const animeId = params?.id as string;
   const episodeParam = searchParams?.get('ep');
-
-  // Redirect to TV watch page if on TV
-  useEffect(() => {
-    if (deviceType === 'tv') {
-      const currentUrl = `/tv/watch/${animeId}${episodeParam ? `?ep=${episodeParam}` : ''}`;
-      router.replace(currentUrl);
-      return;
-    }
-  }, [deviceType, animeId, episodeParam, router]);
   
   const [episodes, setEpisodes] = useState<AnimeEpisodesResponse | null>(null);
   const [currentEpisodeId, setCurrentEpisodeId] = useState<string>('');

@@ -6,7 +6,6 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { AnimeAPI, type AnimeInfoResponse, type AnimeEpisodesResponse } from '@/lib/api';
-import { useScreenDetection } from '@/hooks/useScreenDetection';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,12 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Play, Star, Clock, BookOpen, Heart, Share2 } from 'lucide-react';
 import AnimeCarousel from '@/components/AnimeCarousel';
 import { Skeleton } from '@/components/ui/skeleton';
-import TVAnimeDetailsPageNew from '@/components/TVAnimeDetailsPageNew';
 
 const AnimeDetailsPage = () => {
   const params = useParams();
   const animeId = params?.id as string;
-  const { deviceType } = useScreenDetection();
   const [animeData, setAnimeData] = useState<AnimeInfoResponse | null>(null);
   const [episodes, setEpisodes] = useState<AnimeEpisodesResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,11 +56,6 @@ const AnimeDetailsPage = () => {
     fetchAnimeData();
   }, [animeId]);
 
-  // Move the TV device check after all hooks
-  if (typeof window !== 'undefined' && window.navigator.userAgent.includes('TV')) {
-    return <TVAnimeDetailsPageNew />;
-  }
-
   if (loading) {
     return <AnimeDetailsSkeleton />;
   }
@@ -82,11 +74,6 @@ const AnimeDetailsPage = () => {
 
   const { anime, mostPopularAnimes, recommendedAnimes, relatedAnimes, seasons } = animeData.data;
   const { info, moreInfo } = anime;
-
-  // Render TV interface for TV devices
-  if (deviceType === 'tv') {
-    return <TVAnimeDetailsPageNew />;
-  }
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -182,15 +169,15 @@ const AnimeDetailsPage = () => {
       </div>
 
       {/* Content Sections */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        <Tabs defaultValue="overview" className="space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <Tabs defaultValue="overview" className="space-y-8">
           <TabsList className="grid w-full max-w-md grid-cols-3">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="episodes">Episodes</TabsTrigger>
             <TabsTrigger value="characters">Characters</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-8">
+          <TabsContent value="overview" className="space-y-12">
             {/* More Info */}
             <Card>
               <CardContent className="p-6">
@@ -230,8 +217,8 @@ const AnimeDetailsPage = () => {
             {info.promotionalVideos && info.promotionalVideos.length > 0 && (
               <Card>
                 <CardContent className="p-6">
-                  <h3 className="text-2xl font-bold mb-4">Videos</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <h3 className="text-2xl font-bold mb-6">Videos</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {info.promotionalVideos.map((video, index) => (
                       <div key={index} className="relative group cursor-pointer">
                         <div className="aspect-video bg-muted rounded-lg overflow-hidden">
@@ -248,7 +235,7 @@ const AnimeDetailsPage = () => {
                           </div>
                         </div>
                         {video.title && (
-                          <p className="mt-2 font-medium text-sm line-clamp-2">{video.title}</p>
+                          <p className="mt-2 font-medium">{video.title}</p>
                         )}
                       </div>
                     ))}
@@ -260,15 +247,15 @@ const AnimeDetailsPage = () => {
             {/* Seasons */}
             {seasons && seasons.length > 0 && (
               <div>
-                <h3 className="text-2xl font-bold mb-4">Seasons</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+                <h3 className="text-2xl font-bold mb-6">Seasons</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {seasons.map((season) => (
                     <Link key={season.id} href={`/anime/${season.id}`}>
-                      <Card className={`group cursor-pointer transition-all duration-300 hover:shadow-lg h-full ${
+                      <Card className={`group cursor-pointer transition-all duration-300 hover:shadow-lg ${
                         season.isCurrent ? 'ring-2 ring-rose-500' : ''
                       }`}>
-                        <CardContent className="p-3 sm:p-4 h-full">
-                          <div className="aspect-[3/4] relative mb-2 sm:mb-3 rounded-lg overflow-hidden">
+                        <CardContent className="p-4">
+                          <div className="aspect-[3/4] relative mb-3 rounded-lg overflow-hidden">
                             <Image
                               src={season.poster}
                               alt={season.name}
@@ -276,7 +263,7 @@ const AnimeDetailsPage = () => {
                               className="object-cover group-hover:scale-105 transition-transform duration-300"
                             />
                           </div>
-                          <h4 className="font-semibold text-xs sm:text-sm group-hover:text-rose-500 transition-colors line-clamp-2">
+                          <h4 className="font-semibold text-sm group-hover:text-rose-500 transition-colors">
                             {season.title}
                           </h4>
                         </CardContent>
@@ -293,22 +280,20 @@ const AnimeDetailsPage = () => {
               <CardContent className="p-6">
                 <h3 className="text-2xl font-bold mb-6">Episodes</h3>
                 {episodes?.data?.episodes ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     {episodes.data.episodes.map((episode) => (
                       <Link key={episode.episodeId} href={`/watch/${animeId}?ep=${episode.number}`}>
-                        <Card className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:border-rose-500/50 h-full">
-                          <CardContent className="p-3 sm:p-4 h-full flex flex-col">
-                            <div className="aspect-video bg-gradient-to-br from-rose-500/20 to-purple-500/20 rounded-lg flex items-center justify-center mb-2 sm:mb-3 group-hover:from-rose-500/30 group-hover:to-purple-500/30 transition-all">
-                              <Play className="w-6 h-6 sm:w-8 sm:h-8 text-white opacity-80" />
+                        <Card className="group cursor-pointer transition-all duration-300 hover:shadow-lg hover:border-rose-500/50">
+                          <CardContent className="p-4">
+                            <div className="aspect-video bg-gradient-to-br from-rose-500/20 to-purple-500/20 rounded-lg flex items-center justify-center mb-3 group-hover:from-rose-500/30 group-hover:to-purple-500/30 transition-all">
+                              <Play className="w-8 h-8 text-white opacity-80" />
                             </div>
-                            <div className="flex-1">
-                              <h4 className="font-semibold text-xs sm:text-sm mb-1 group-hover:text-rose-500 transition-colors">
-                                Episode {episode.number}
-                              </h4>
-                              <p className="text-xs text-muted-foreground line-clamp-2">
-                                {episode.title}
-                              </p>
-                            </div>
+                            <h4 className="font-semibold text-sm mb-1 group-hover:text-rose-500 transition-colors">
+                              Episode {episode.number}
+                            </h4>
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {episode.title}
+                            </p>
                           </CardContent>
                         </Card>
                       </Link>
@@ -376,7 +361,7 @@ const AnimeDetailsPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="space-y-2"
+            className="mt-12"
           >
             <AnimeCarousel
               title="Recommended for You"
@@ -392,7 +377,7 @@ const AnimeDetailsPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
-            className="space-y-2"
+            className="mt-12"
           >
             <AnimeCarousel
               title="Related Anime"
@@ -408,7 +393,7 @@ const AnimeDetailsPage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8 }}
-            className="space-y-2"
+            className="mt-12"
           >
             <AnimeCarousel
               title="Most Popular"
