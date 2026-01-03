@@ -17,7 +17,7 @@ import { updateLocalContinueWatching, getLocalContinueWatching } from "@/lib/loc
 import { useAuth } from "@/contexts/AuthContext";
 import { useUpdateWatchHistory } from '@/hooks/useWatchHistory';
 import { useViewTracker, useAnimeViewCount, formatViewCount } from '@/hooks/useViews';
-import { getProxiedVideoUrl, getProxiedEmbedUrl } from "@/lib/api";
+import { getProxiedVideoUrl } from "@/lib/api";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -209,16 +209,9 @@ export default function WatchPage() {
   // Compute selected embed source for WatchAnimeWorld
   const selectedEmbedSource = useMemo(() => {
     if (selectedServerIndex !== -2 || !selectedLangCode || !sourcesData) return null;
-    const source = sourcesData.sources.find(
+    return sourcesData.sources.find(
       s => s.langCode === selectedLangCode && (s.isEmbed || (!s.isM3U8 && s.needsHeadless))
-    );
-    if (!source) return null;
-    
-    // Proxy the embed URL to bypass AdBlock/Sandbox restrictions
-    return {
-      ...source,
-      url: getProxiedEmbedUrl(source.url),
-    };
+    ) || null;
   }, [selectedServerIndex, selectedLangCode, sourcesData]);
 
   const updateWatchHistory = useUpdateWatchHistory();
