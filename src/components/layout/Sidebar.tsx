@@ -14,10 +14,14 @@ export function Sidebar() {
     <nav className="fixed left-6 top-1/2 -translate-y-1/2 z-50 hidden md:flex flex-col gap-6 p-2 rounded-3xl border border-border/30 bg-background/40 backdrop-blur-xl shadow-2xl">
       <div
         onClick={() => navigate("/")}
-        className="w-10 h-10 mb-4 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-lg cursor-pointer hover:scale-105 transition-transform"
+        className="w-10 h-10 mb-4 rounded-xl flex items-center justify-center cursor-pointer hover:scale-105 transition-transform overflow-hidden"
         style={{ boxShadow: "0 0 20px hsl(var(--primary) / 0.3)" }}
       >
-        <Play className="w-5 h-5 fill-primary-foreground text-primary-foreground" />
+        <img 
+          src="/file_00000000c1e471fa8cb20102e33bdbed-removebg-preview.png" 
+          alt="Tatakai Logo" 
+          className="w-full h-full object-contain"
+        />
       </div>
       
       <NavIcon 

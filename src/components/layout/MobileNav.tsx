@@ -1,7 +1,13 @@
-import { LayoutGrid, Search, Settings, User, LogIn, Users } from "lucide-react";
+import { LayoutGrid, Search, User, LogIn, Users, Heart, TrendingUp, Settings } from "lucide-react";
 import { NavIcon } from "@/components/ui/NavIcon";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function MobileNav() {
   const location = useLocation();
@@ -22,17 +28,59 @@ export function MobileNav() {
         active={isActive("/search")} 
         onClick={() => navigate("/search")}
       />
+      
+      {/* Favorites/Trending Dropdown */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="focus:outline-none">
+            <NavIcon 
+              icon={Heart} 
+              active={isActive("/favorites") || isActive("/trending")} 
+              onClick={(e) => e.preventDefault()}
+            />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="center" side="top" className="mb-2">
+          <DropdownMenuItem onClick={() => navigate("/favorites")}>
+            <Heart className="w-4 h-4 mr-2" />
+            Favorites
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate("/trending")}>
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Trending
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
       <NavIcon 
         icon={Users} 
         active={isActive("/community")} 
         onClick={() => navigate("/community")}
       />
+      
+      {/* Profile/Settings Dropdown */}
       {user && !isBanned ? (
-        <NavIcon 
-          icon={User} 
-          active={location.pathname.startsWith('/@') || isActive("/profile")} 
-          onClick={() => navigate(profile?.username ? `/@${profile.username}` : '/profile')}
-        />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="focus:outline-none">
+              <NavIcon 
+                icon={User} 
+                active={location.pathname.startsWith('/@') || isActive("/profile") || isActive("/settings")} 
+                onClick={(e) => e.preventDefault()}
+              />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="top" className="mb-2">
+            <DropdownMenuItem onClick={() => navigate(profile?.username ? `/@${profile.username}` : '/profile')}>
+              <User className="w-4 h-4 mr-2" />
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/settings")}>
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       ) : (
         <NavIcon 
           icon={LogIn} 
@@ -40,11 +88,6 @@ export function MobileNav() {
           onClick={() => navigate("/auth")}
         />
       )}
-      <NavIcon 
-        icon={Settings} 
-        active={isActive("/settings")} 
-        onClick={() => navigate("/settings")}
-      />
     </div>
   );
 }
