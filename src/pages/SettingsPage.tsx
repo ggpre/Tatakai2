@@ -349,7 +349,7 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-muted/30">
                   <p className="font-medium mb-1">Tatakai</p>
-                  <p className="text-sm text-muted-foreground">Version 1.0.0</p>
+                  <p className="text-sm text-muted-foreground">Version {__APP_VERSION__}</p>
                 </div>
                 <div className="p-4 rounded-xl bg-muted/30">
                   <p className="text-sm text-muted-foreground">
