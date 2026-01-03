@@ -212,6 +212,15 @@
   }
 }
 
+@keyframes gradient {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -225,6 +234,10 @@
 
 .animate-fade-in {
   animation: fade-in 0.5s ease-out forwards;
+}
+
+.animate-gradient {
+  animation: gradient 4s ease infinite;
 }
 
 .animation-delay-100 { animation-delay: 100ms; }
