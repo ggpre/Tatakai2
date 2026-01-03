@@ -12,11 +12,14 @@ export default function DownloadPage() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadInterval, setDownloadInterval] = useState<NodeJS.Timeout | null>(null);
 
+  // Noise texture SVG constant for reusability
+  const NOISE_TEXTURE_SVG = "data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E";
+
   const handleDownload = () => {
     setIsDownloading(true);
     setDownloadProgress(0);
     
-    // Simulate download progress
+    // Simulate download progress - 100ms intervals for smooth performance
     const interval = setInterval(() => {
       setDownloadProgress((prev) => {
         if (prev >= 100) {
@@ -27,9 +30,9 @@ export default function DownloadPage() {
           }, 1000);
           return 100;
         }
-        return prev + 2;
+        return prev + 1; // Increment by 1 every 100ms
       });
-    }, 50);
+    }, 100);
 
     setDownloadInterval(interval);
   };
@@ -43,7 +46,7 @@ export default function DownloadPage() {
       setIsDownloading(false);
       setDownloadProgress(0);
     };
-  }, [downloadInterval]);
+  }, []); // Empty dependency array - only run on mount/unmount
 
   return (
     <div className="min-h-screen bg-black text-white overflow-x-hidden">
@@ -51,7 +54,7 @@ export default function DownloadPage() {
       <div 
         className="fixed inset-0 pointer-events-none z-0 opacity-40"
         style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E")`
+          backgroundImage: `url("${NOISE_TEXTURE_SVG}")`
         }}
       />
 
