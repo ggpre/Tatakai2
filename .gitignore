@@ -23,3 +23,12 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Mobile app specific
+TatakaiMobile/node_modules
+TatakaiMobile/.expo
+TatakaiMobile/dist
+TatakaiMobile/web-build
+TatakaiMobile/.metro-health-check*
+TatakaiMobile/ios
+TatakaiMobile/android
