@@ -262,7 +262,9 @@ export default function WatchScreen() {
                   )}
                 </TouchableOpacity>
 
-                {streamingData?.intro && (
+                {streamingData?.intro && 
+                 progress >= streamingData.intro.start * 1000 && 
+                 progress <= streamingData.intro.end * 1000 && (
                   <TouchableOpacity
                     style={styles.skipIntroButton}
                     onPress={skipIntro}
